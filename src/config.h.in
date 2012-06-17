@@ -318,6 +318,9 @@
 /* Define if you want huge features. */
 #undef FEAT_HUGE
 
+/* Define if you want to use Enchant for spell-checking. */
+#undef FEAT_ENCHANT
+
 /* Define if you want to include the Lua interpreter. */
 #undef FEAT_LUA
 

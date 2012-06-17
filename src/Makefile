@@ -1733,10 +1733,12 @@ reconfig: scratch clean
 # - Uses ">config.log" instead of "./config.log".
 autoconf:
 	if test ! -f configure.save; then mv configure configure.save; fi
+	aclocal
 	$(AUTOCONF)
 	sed -e 's+>config.log+>auto/config.log+' -e 's+\./config.log+auto/config.log+' configure > auto/configure
 	chmod 755 auto/configure
 	mv -f configure.save configure
+	-rm -f aclocal.m4
 	-rm -rf autom4te.cache
 	-rm -f auto/config.status auto/config.cache
 
