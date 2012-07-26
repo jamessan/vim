@@ -535,6 +535,11 @@
 # define FEAT_SPELL
 #endif
 
+/* Enchant requires being able to convert to/from UTF-8 */
+#if defined(FEAT_SPELL) && defined(FEAT_ENCHANT)
+# define FEAT_MBYTE
+#endif
+
 /*
  * +builtin_terms	Choose one out of the following four:
  *
