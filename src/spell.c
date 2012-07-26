@@ -311,6 +311,10 @@
 # include <time.h>	/* for time_t */
 #endif
 
+#ifdef FEAT_ENCHANT
+# include <enchant.h>
+#endif
+
 #define MAXWLEN 254		/* Assume max. word len is this many bytes.
 				   Some places assume a word length fits in a
 				   byte, thus it can't be above 255.
@@ -454,6 +458,13 @@ struct slang_S
     char_u	*sl_fname;	/* name of .spl file */
     int		sl_add;		/* TRUE if it's a .add file. */
 
+#ifdef FEAT_ENCHANT
+    int		sl_isenchant;	/* TRUE if Enchant is being used */
+    EnchantDict	*sl_enchantdict; /* Enchant dictionary */
+    vimconv_T	sl_toenchconv;	/* Enchant deals with UTF-8 strings */
+    vimconv_T	sl_fromenchconv;
+#endif
+
     char_u	*sl_fbyts;	/* case-folded word bytes */
     idx_T	*sl_fidxs;	/* case-folded word indexes */
     char_u	*sl_kbyts;	/* keep-case word bytes */
@@ -524,6 +535,10 @@ struct slang_S
 /* First language that is loaded, start of the linked list of loaded
  * languages. */
 static slang_T *first_lang = NULL;
+
+#ifdef FEAT_ENCHANT
+static EnchantBroker *broker = NULL;
+#endif
 
 /* Flags used in .spl file for soundsalike flags. */
 #define SAL_F0LLOWUP		1
@@ -856,6 +871,9 @@ static void find_prefix __ARGS((matchinf_T *mip, int mode));
 static int fold_more __ARGS((matchinf_T *mip));
 static int spell_valid_case __ARGS((int wordflags, int treeflags));
 static int no_spell_checking __ARGS((win_T *wp));
+#ifdef FEAT_ENCHANT
+static int ensure_broker_init __ARGS((void));
+#endif
 static void spell_load_lang __ARGS((char_u *lang));
 static char_u *spell_enc __ARGS((void));
 static void int_wordlist_spl __ARGS((char_u *fname));
@@ -2444,6 +2462,16 @@ typedef struct spelload_S
     int	    sl_nobreak;			/* NOBREAK language found */
 } spelload_T;
 
+#ifdef FEAT_ENCHANT
+    static int
+ensure_broker_init()
+{
+    if (broker == NULL)
+	broker = enchant_broker_init();
+    return broker == NULL ? FAIL : OK;
+}
+#endif
+
 /*
  * Load word list(s) for "lang" from Vim spell file(s).
  * "lang" must be the language without the region: e.g., "en".
@@ -2457,6 +2485,9 @@ spell_load_lang(lang)
     spelload_T	sl;
 #ifdef FEAT_AUTOCMD
     int		round;
+#endif
+#ifdef FEAT_ENCHANT
+    slang_T	*lp;
 #endif
 
     /* Copy the language name to pass it to spell_load_cb() as a cookie.
@@ -2500,6 +2531,32 @@ spell_load_lang(lang)
 		    && apply_autocmds(EVENT_SPELLFILEMISSING, lang,
 					      curbuf->b_fname, FALSE, curbuf))
 		continue;
+#endif
+
+#ifdef FEAT_ENCHANT
+	    if (ensure_broker_init() == OK)
+	    {
+		lp = slang_alloc(lang);
+		if (lp != NULL)
+		{
+		    lp->sl_enchantdict = enchant_broker_request_dict(broker, (char*)lang);
+		    if (lp->sl_enchantdict != NULL)
+		    {
+			convert_setup(&lp->sl_toenchconv, spell_enc(), (char_u*)"utf-8");
+			convert_setup(&lp->sl_fromenchconv, (char_u*)"utf-8", spell_enc());
+			lp->sl_isenchant = TRUE;
+			lp->sl_next = first_lang;
+			first_lang = lp;
+			sl.sl_slang = lp;
+			r = OK;
+		    }
+		    else
+			slang_free(lp);
+		}
+	    }
+#endif
+
+#ifdef FEAT_AUTOCMD
 	    break;
 #endif
 	}
@@ -2518,7 +2575,11 @@ spell_load_lang(lang)
 #endif
 						     lang, spell_enc(), lang);
     }
-    else if (sl.sl_slang != NULL)
+    else if (sl.sl_slang != NULL
+#ifdef FEAT_ENCHANT
+	     && !sl.sl_slang->sl_isenchant
+#endif
+	     )
     {
 	/* At least one file was loaded, now load ALL the additions. */
 	STRCPY(fname_enc + STRLEN(fname_enc) - 3, "add.spl");
@@ -2696,6 +2757,16 @@ slang_clear(lp)
     lp->sl_compminlen = 0;
     lp->sl_compsylmax = MAXWLEN;
     lp->sl_regions[0] = NUL;
+
+#ifdef FEAT_ENCHANT
+    if (lp->sl_isenchant) {
+	enchant_broker_free_dict(broker, lp->sl_enchantdict);
+	lp->sl_enchantdict = NULL;
+	convert_setup(&lp->sl_toenchconv, NULL, NULL);
+	convert_setup(&lp->sl_fromenchconv, NULL, NULL);
+	lp->sl_isenchant = FALSE;
+    }
+#endif
 }
 
 /*
@@ -4738,6 +4809,11 @@ spell_free_all()
 	first_lang = slang->sl_next;
 	slang_free(slang);
     }
+
+# ifdef FEAT_ENCHANT
+    if (broker != NULL)
+	enchant_broker_free(broker);
+# endif
 
     spell_delete_wordlist();
 
