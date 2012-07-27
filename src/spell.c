@@ -922,6 +922,9 @@ static void spell_find_cleanup __ARGS((suginfo_T *su));
 static void onecap_copy __ARGS((char_u *word, char_u *wcopy, int upper));
 static void allcap_copy __ARGS((char_u *word, char_u *wcopy));
 static void suggest_try_special __ARGS((suginfo_T *su));
+#ifdef FEAT_ENCHANT
+static void suggest_try_enchant __ARGS((suginfo_T *su));
+#endif
 static void suggest_try_change __ARGS((suginfo_T *su));
 static void suggest_trie_walk __ARGS((suginfo_T *su, langp_T *lp, char_u *fword, int soundfold));
 static void go_deeper __ARGS((trystate_T *stack, int depth, int score_add));
@@ -10411,7 +10414,11 @@ spell_suggest(count)
 		msg_puts(IObuff);
 	    }
 
-	    if (p_verbose > 0)
+	    if (p_verbose > 0
+#ifdef FEAT_ENCHANT
+		&& !stp->st_slang->sl_isenchant
+#endif
+	       )
 	    {
 		/* Add the score. */
 		if (sps_flags & (SPS_DOUBLE | SPS_BEST))
@@ -10928,6 +10935,10 @@ spell_suggest_intern(su, interactive)
      */
     suggest_load_files();
 
+#ifdef FEAT_ENCHANT
+    suggest_try_enchant(su);
+#endif
+
     /*
      * 1. Try special cases, such as repeating a word: "the the" -> "the".
      *
@@ -11360,6 +11371,68 @@ suggest_try_special(su)
 		       RESCORE(SCORE_REP, 0), 0, TRUE, su->su_sallang, FALSE);
     }
 }
+
+#ifdef FEAT_ENCHANT
+/*
+ * Try finding suggestions via Enchant.
+ */
+    static void
+suggest_try_enchant(su)
+    suginfo_T	*su;
+{
+    int		lpi;
+    langp_T	*lp;
+    char	**suggs;
+    size_t	n;
+
+    for (lpi = 0; lpi < curwin->w_s->b_langp.ga_len; ++lpi)
+    {
+	char_u	*to = NULL;
+	int	len = su->su_badlen;
+	int	convto;
+
+	lp = LANGP_ENTRY(curwin->w_s->b_langp, lpi);
+	if (!lp->lp_slang->sl_isenchant)
+	    continue;
+
+	convto = lp->lp_slang->sl_toenchconv.vc_type != CONV_NONE;
+	to = su->su_badptr;
+	if (convto)
+	{
+	    to = string_convert(&lp->lp_slang->sl_toenchconv, su->su_badptr, &len);
+	    if (to == NULL)
+		continue;
+	}
+
+	suggs = enchant_dict_suggest(lp->lp_slang->sl_enchantdict, (char*)to,
+				     (ssize_t)len, &n);
+	if (convto)
+	    vim_free(to);
+
+	if (suggs != NULL)
+	{
+	    size_t i;
+	    for (i = 0; i < n; ++i)
+	    {
+		char_u	*from = NULL;
+		if (lp->lp_slang->sl_fromenchconv.vc_type != CONV_NONE)
+		    from = string_convert(&lp->lp_slang->sl_fromenchconv,
+					  (char_u*)suggs[i], NULL);
+		else
+		    from = vim_strsave((char_u*)suggs[i]);
+
+		if (from == NULL)
+		    continue;
+
+		add_suggestion(su, &su->su_ga, from, su->su_badlen, i, 0, FALSE,
+			       lp->lp_slang, FALSE);
+		vim_free(from);
+	    }
+	    enchant_dict_free_string_list(lp->lp_slang->sl_enchantdict, suggs);
+	}
+    }
+}
+#endif
 
 /*
  * Try finding suggestions by adding/removing/swapping letters.
