@@ -2542,13 +2542,22 @@ spell_load_lang(lang)
 		    lp->sl_enchantdict = enchant_broker_request_dict(broker, (char*)lang);
 		    if (lp->sl_enchantdict != NULL)
 		    {
-			convert_setup(&lp->sl_toenchconv, spell_enc(), (char_u*)"utf-8");
-			convert_setup(&lp->sl_fromenchconv, (char_u*)"utf-8", spell_enc());
 			lp->sl_isenchant = TRUE;
-			lp->sl_next = first_lang;
-			first_lang = lp;
-			sl.sl_slang = lp;
-			r = OK;
+			lp->sl_toenchconv.vc_type = CONV_NONE;
+			lp->sl_fromenchconv.vc_type = CONV_NONE;
+
+			if (convert_setup(&lp->sl_toenchconv, spell_enc(),
+					  (char_u*)"utf-8") == OK
+			    && convert_setup(&lp->sl_fromenchconv, (char_u*)"utf-8",
+					     spell_enc()) == OK)
+			{
+			    lp->sl_next = first_lang;
+			    first_lang = lp;
+			    sl.sl_slang = lp;
+			    r = OK;
+			}
+			else
+			    slang_free(lp);
 		    }
 		    else
 			slang_free(lp);
