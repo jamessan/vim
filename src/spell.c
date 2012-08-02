@@ -1129,25 +1129,47 @@ spell_check(wp, ptr, attrp, capcol, docount)
 
 	/* If reloading fails the language is still in the list but everything
 	 * has been cleared. */
-	if (mi.mi_lp->lp_slang->sl_fidxs == NULL)
+	if (mi.mi_lp->lp_slang->sl_fidxs == NULL
+#ifdef FEAT_ENCHANT
+		&& !mi.mi_lp->lp_slang->sl_isenchant
+#endif
+	    )
 	    continue;
 
-	/* Check for a matching word in case-folded words. */
-	find_word(&mi, FIND_FOLDWORD);
-
-	/* Check for a matching word in keep-case words. */
-	find_word(&mi, FIND_KEEPWORD);
-
-	/* Check for matching prefixes. */
-	find_prefix(&mi, FIND_FOLDWORD);
-
-	/* For a NOBREAK language, may want to use a word without a following
-	 * word as a backup. */
-	if (mi.mi_lp->lp_slang->sl_nobreak && mi.mi_result == SP_BAD
-						   && mi.mi_result2 != SP_BAD)
+#ifdef FEAT_ENCHANT
+	if (mi.mi_lp->lp_slang->sl_isenchant)
 	{
-	    mi.mi_result = mi.mi_result2;
-	    mi.mi_end = mi.mi_end2;
+	    /* Don't check the spelling if there aren't any characters to
+	     * check.  Enchant will print out an error. */
+	    if (mi.mi_end > ptr)
+	    {
+		if (!enchant_dict_check(mi.mi_lp->lp_slang->sl_enchantdict,
+					(char*)ptr, (ssize_t)(mi.mi_end - ptr)))
+		    mi.mi_result = SP_OK;
+		else
+		    mi.mi_result = SP_BAD;
+	    }
+	}
+	else
+#endif
+	{
+	    /* Check for a matching word in case-folded words. */
+	    find_word(&mi, FIND_FOLDWORD);
+
+	    /* Check for a matching word in keep-case words. */
+	    find_word(&mi, FIND_KEEPWORD);
+
+	    /* Check for matching prefixes. */
+	    find_prefix(&mi, FIND_FOLDWORD);
+
+	    /* For a NOBREAK language, may want to use a word without a following
+	     * word as a backup. */
+	    if (mi.mi_lp->lp_slang->sl_nobreak && mi.mi_result == SP_BAD
+						       && mi.mi_result2 != SP_BAD)
+	    {
+		mi.mi_result = mi.mi_result2;
+		mi.mi_end = mi.mi_end2;
+	    }
 	}
 
 	/* Count the word in the first language where it's found to be OK. */
