@@ -9532,6 +9532,49 @@ spell_add_word(word, len, bad, idx, undo)
     int		i;
     char_u	*spf;
 
+#ifdef FEAT_ENCHANT
+    if (*curwin->w_s->b_p_spl != NUL && curwin->w_s->b_langp.ga_len > 0
+	&& LANGP_ENTRY(curwin->w_s->b_langp, 0)->lp_slang->sl_isenchant)
+    {
+	slang_T	*sl = LANGP_ENTRY(curwin->w_s->b_langp, 0)->lp_slang;
+
+	char_u	*str = word;
+	char_u	*pc = NULL;
+
+	if (sl->sl_toenchconv.vc_type != CONV_NONE)
+	{
+	    pc = string_convert(&sl->sl_toenchconv, word, &len);
+	    if (pc == NULL)
+		return;
+	    str = pc;
+	}
+
+	if (bad || undo)
+	{
+	    if (idx == 0)
+		enchant_dict_remove_from_session(sl->sl_enchantdict,
+						 (char*)str, (ssize_t)len);
+	    else
+		enchant_dict_remove(sl->sl_enchantdict, (char*)str,
+				    (ssize_t)len);
+	}
+	else
+	{
+	    if (idx == 0)
+		enchant_dict_add_to_session(sl->sl_enchantdict, (char*)str,
+					    (ssize_t)len);
+	    else
+		enchant_dict_add(sl->sl_enchantdict, (char*)str, (ssize_t)len);
+	}
+
+	if (pc != NULL)
+	    vim_free(pc);
+
+	redraw_all_later(SOME_VALID);
+	return;
+    }
+#endif
+
     if (idx == 0)	    /* use internal wordlist */
     {
 	if (int_wordlist == NULL)
