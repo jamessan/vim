@@ -586,8 +586,9 @@ CClink = $(CC)
 # as root: sysctl -w vm.max_proc_mmap=30000
 #EXTRA_LIBS = /usr/local/lib/libefence.a
 
-# Autoconf binary.
+# Autoconf-related binaries.
 AUTOCONF = autoconf
+ACLOCAL = aclocal
 
 # PURIFY - remove the # to use the "purify" program (hoi Nia++!)
 #PURIFY = purify
@@ -1733,10 +1734,12 @@ reconfig: scratch clean
 # - Uses ">config.log" instead of "./config.log".
 autoconf:
 	if test ! -f configure.save; then mv configure configure.save; fi
+	$(ACLOCAL)
 	$(AUTOCONF)
 	sed -e 's+>config.log+>auto/config.log+' -e 's+\./config.log+auto/config.log+' configure > auto/configure
 	chmod 755 auto/configure
 	mv -f configure.save configure
+	-rm -f aclocal.m4
 	-rm -rf autom4te.cache
 	-rm -f auto/config.status auto/config.cache
 
