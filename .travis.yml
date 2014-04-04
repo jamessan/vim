@@ -1,0 +1,14 @@
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq libncurses5-dev libhunspell-dev
+# "master" is the upstream sources
+language: c
+compiler:
+  - clang
+  - gcc
+env:
+  - SPELL=--enable-hunspell FEATURES=huge
+  - SPELL=--disable-hunspell FEATURES=huge
+  - SPELL=--disable-hunspell FEATURES=small
+script:
+  - make -C src autoconf && ./configure --without-x --disable-gui --with-features=$FEATURES $SPELL && make && make test
