@@ -1,0 +1,18 @@
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq libenchant-dev libncurses5-dev autoconf
+# "master" is the upstream sources
+branches:
+  except:
+    - master
+language: c
+compiler:
+  - clang
+  - gcc
+env:
+  - SPELL=--enable-enchant
+  - SPELL=--disable-enchant
+script:
+  - make -C src autoconf && ./configure --without-x --disable-gui --with-features=huge $SPELL && make && make test
+notification:
+  email: false
