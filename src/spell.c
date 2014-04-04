@@ -924,6 +924,7 @@ static void allcap_copy __ARGS((char_u *word, char_u *wcopy));
 static void suggest_try_special __ARGS((suginfo_T *su));
 #ifdef FEAT_ENCHANT
 static void suggest_try_enchant __ARGS((suginfo_T *su));
+static void enchant_spellinfo __ARGS((const char * const lang_tag, const char * const provider_name, const char * const provider_desc, const char * const provider_file, void *user_data));
 #endif
 static void suggest_try_change __ARGS((suginfo_T *su));
 static void suggest_trie_walk __ARGS((suginfo_T *su, langp_T *lp, char_u *fword, int soundfold));
@@ -15779,6 +15780,25 @@ pop:
 }
 #endif
 
+#ifdef FEAT_ENCHANT
+    static void
+enchant_spellinfo(lang_tag, provider_name, provider_desc, provider_file, user_data)
+    const char * const lang_tag;
+    const char * const provider_name;
+    const char * const provider_desc;
+    const char * const provider_file UNUSED;
+    void *user_data UNUSED;
+{
+    msg_puts((char_u *)"broker: ");
+    msg_puts((char_u *)lang_tag);
+    msg_puts((char_u *)", ");
+    msg_puts((char_u *)provider_name);
+    msg_puts((char_u *)", ");
+    msg_puts((char_u *)provider_desc);
+    msg_putchar('\n');
+}
+#endif
+
 /*
  * ":spellinfo"
  */
@@ -15797,14 +15817,23 @@ ex_spellinfo(eap)
     for (lpi = 0; lpi < curwin->w_s->b_langp.ga_len && !got_int; ++lpi)
     {
 	lp = LANGP_ENTRY(curwin->w_s->b_langp, lpi);
-	msg_puts((char_u *)"file: ");
-	msg_puts(lp->lp_slang->sl_fname);
-	msg_putchar('\n');
-	p = lp->lp_slang->sl_info;
-	if (p != NULL)
+#ifdef FEAT_ENCHANT
+	if (lp->lp_slang->sl_isenchant)
 	{
-	    msg_puts(p);
+	    enchant_dict_describe(lp->lp_slang->sl_enchantdict, &enchant_spellinfo, NULL);
+	}
+	else
+#endif
+	{
+	    msg_puts((char_u *)"file: ");
+	    msg_puts(lp->lp_slang->sl_fname);
 	    msg_putchar('\n');
+	    p = lp->lp_slang->sl_info;
+	    if (p != NULL)
+	    {
+		msg_puts(p);
+		msg_putchar('\n');
+	    }
 	}
     }
     msg_end();
