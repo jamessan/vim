@@ -15973,6 +15973,11 @@ spell_dump_compl(pat, ic, dir, dumpflags_arg)
 	if (slang->sl_fbyts == NULL)	    /* reloading failed */
 	    continue;
 
+#ifdef FEAT_ENCHANT
+	if (slang->sl_isenchant)
+	    continue;
+#endif
+
 	if (pat == NULL)
 	{
 	    vim_snprintf((char *)IObuff, IOSIZE, "# file: %s", slang->sl_fname);
