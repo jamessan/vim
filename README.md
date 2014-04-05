@@ -1,3 +1,40 @@
+Starting in version 7.0, Vim gained the ability to perform spell-checking.
+This happened by having a bunch of Vim-specific code written.
+
+Part of that was necessary since Vim needed to provide a way for one to define
+which parts of a file actually should be spell-checked and to handle
+highlighting the misspellings.  However, an [explicit
+choice](http://vimhelp.appspot.com/develop.txt.html#develop-spell) was also
+made to implement a spell checker in Vim instead of delegating to an external
+library.
+
+Supporting this effort from Debian's perspective was a bit of a pain.  At the
+time, none of the maintainers were able to easily perform the conversion of
+MySpell/Hunspell dictionaries to Vim's custom format.  It was finally
+[decided](http://mid.gmane.org/20071126084953.GK7304@jamessan.com) to just
+let Vim's spellfile plugin handle downloading the relevant spellfiles for the
+user instead of pursuing packaging further.
+
+There have been various discussions over the years, both on the vim-dev
+mailing list and the pkg-vim-maintainers list about possible changes to make
+Vim work with external spell checkers.  RedHat uses a
+[patch](http://pkgs.fedoraproject.org/cgit/vim.git/tree/vim-7.0-hunspell.patch)
+to fallback on Hunspell when Vim's own spellfile isn't present.
+
+While Hunspell is a more natural fit to Vim's mechanism for spell checking, I
+find the flexibility provided by
+[Enchant](http://www.abisource.com/projects/enchant/) to be a desirable
+feature.  As such, I've been working on adding support for libenchant to Vim,
+in the spirit of RedHat's Hunspell patch.  Once that's complete, I'll also
+attempt to go one step further and completely replace the use of Vim's
+spellfiles with libenchant, keeping as much of the extra heuristics in Vim as
+possible.
+
+Thus are the goals of the pu/enchant-fallback and eventual pu/enchant-replace
+branches in this repo.
+
+[![Build Status](https://travis-ci.org/jamessan/vim.svg?branch=pu/enchant-fallback)](https://travis-ci.org/jamessan/vim)
+
 `README.md` for version 7.4 of Vim: Vi IMproved.
 
 
