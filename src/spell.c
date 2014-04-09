@@ -338,6 +338,14 @@ typedef long idx_T;
 # define SPL_FNAME_ASCII ".ascii."
 #endif
 
+#ifdef FEAT_ENCHANT
+# define LANGEQ(slang, lang, full_lang) \
+    STRICMP(slang->sl_isenchant ? full_lang : lang, slang->sl_name) == 0
+#else
+# define LANGEQ(slang, lang, full_lang) \
+    STRICMP(lang, slang->sl_name) == 0
+#endif
+
 /* Flags used for a word.  Only the lowest byte can be used, the region byte
  * comes above it. */
 #define WF_REGION   0x01	/* region byte follows */
@@ -874,7 +882,7 @@ static int no_spell_checking __ARGS((win_T *wp));
 #ifdef FEAT_ENCHANT
 static int ensure_broker_init __ARGS((void));
 #endif
-static void spell_load_lang __ARGS((char_u *lang));
+static void spell_load_lang __ARGS((char_u *lang, char_u *full_lang));
 static char_u *spell_enc __ARGS((void));
 static void int_wordlist_spl __ARGS((char_u *fname));
 static void spell_load_cb __ARGS((char_u *fname, void *cookie));
@@ -2501,10 +2509,12 @@ ensure_broker_init()
 /*
  * Load word list(s) for "lang" from Vim spell file(s).
  * "lang" must be the language without the region: e.g., "en".
+ * "full_lang" is the lang as specified by the user
  */
     static void
-spell_load_lang(lang)
+spell_load_lang(lang, full_lang)
     char_u	*lang;
+    char_u	*full_lang;
 {
     char_u	fname_enc[85];
     int		r;
@@ -2562,10 +2572,10 @@ spell_load_lang(lang)
 #ifdef FEAT_ENCHANT
 	    if (ensure_broker_init() == OK)
 	    {
-		lp = slang_alloc(lang);
+		lp = slang_alloc(full_lang);
 		if (lp != NULL)
 		{
-		    lp->sl_enchantdict = enchant_broker_request_dict(broker, (char*)lang);
+		    lp->sl_enchantdict = enchant_broker_request_dict(broker, (char*)full_lang);
 		    if (lp->sl_enchantdict != NULL)
 		    {
 			lp->sl_isenchant = TRUE;
@@ -4308,6 +4318,7 @@ did_set_spelllang(wp)
     slang_T	*slang;
     int		c;
     char_u	lang[MAXWLEN + 1];
+    char_u	full_lang[MAXWLEN + 1]; /* lang + region */
     char_u	spf_name[MAXPATHL];
     int		len;
     char_u	*p;
@@ -4349,6 +4360,7 @@ did_set_spelllang(wp)
 	copy_option_part(&splp, lang, MAXWLEN, ",");
 	region = NULL;
 	len = (int)STRLEN(lang);
+	STRCPY(full_lang, lang);
 
 	if (STRCMP(lang, "cjk") == 0)
 	{
@@ -4397,7 +4409,7 @@ did_set_spelllang(wp)
 
 	    /* Check if we loaded this language before. */
 	    for (slang = first_lang; slang != NULL; slang = slang->sl_next)
-		if (STRICMP(lang, slang->sl_name) == 0)
+		if (LANGEQ(slang, lang, full_lang))
 		    break;
 	}
 
@@ -4417,7 +4429,7 @@ did_set_spelllang(wp)
 		(void)spell_load_file(lang, lang, NULL, FALSE);
 	    else
 	    {
-		spell_load_lang(lang);
+		spell_load_lang(lang, full_lang);
 #ifdef FEAT_AUTOCMD
 		/* SpellFileMissing autocommands may do anything, including
 		 * destroying the buffer we are using... */
@@ -4435,10 +4447,15 @@ did_set_spelllang(wp)
 	 */
 	for (slang = first_lang; slang != NULL; slang = slang->sl_next)
 	    if (filename ? fullpathcmp(lang, slang->sl_fname, FALSE) == FPC_SAME
-			 : STRICMP(lang, slang->sl_name) == 0)
+			 : LANGEQ(slang, lang, full_lang))
 	    {
 		region_mask = REGION_ALL;
-		if (!filename && region != NULL)
+		if (!filename && region != NULL
+#ifdef FEAT_ENCHANT
+		    /* With Enchant, there's a slang per region, so skip this */
+		    && !slang->sl_isenchant
+#endif
+		    )
 		{
 		    /* find region in sl_regions */
 		    c = find_region(slang->sl_regions, region);
