@@ -12,7 +12,7 @@ anchors:
       BUILD=yes TEST=test COVERAGE=no FEATURES=normal CONFOPT= SHADOWOPT="-C src/shadow" SRCDIR=./src/shadow CHECK_AUTOCONF=no
     - &linux-huge
       BUILD=yes TEST="scripttests test_libvterm" COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
-      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-python3interp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-python3interp --enable-rubyinterp --enable-luainterp --with-luajit --enable-tclinterp'"
     - &osx-huge # macOS build
       BUILD=yes TEST=test COVERAGE=no FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
       "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
@@ -39,8 +39,8 @@ anchors:
           - libperl-dev
           - python-dev
           - python3-dev
-          - liblua5.2-dev
-          - lua5.2
+          - libluajit-5.1-dev
+          - luajit
           - ruby-dev
           - tcl-dev
           - cscope
