@@ -2095,6 +2095,7 @@ f_environ(typval_T *argvars UNUSED, typval_T *rettv)
 # else
     extern char		**environ;
 # endif
+    dictitem_T		*di;
 
     if (rettv_dict_alloc(rettv) != OK)
 	return;
@@ -2128,6 +2129,10 @@ f_environ(typval_T *argvars UNUSED, typval_T *rettv)
 	    continue;
 	}
 	*value++ = NUL;
+	di = dict_find(rettv->vval.v_dict, entry, value - entry);
+	// If duplicate entries are found, prefer the last one
+	if (di != NULL)
+	    dictitem_remove(rettv->vval.v_dict, di);
 	dict_add_string(rettv->vval.v_dict, (char *)entry, value);
 	vim_free(entry);
     }
